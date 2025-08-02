@@ -11,7 +11,7 @@ const app = express ();
 const server = http.createServer(app);
 const io = new Server(server, {cors : {origin : "*"}});
 
-require('./sockets/pollingSockets')(io);
+require('../polling-backend/sockets/pollingSocket')(io);
 
 app.use(cors());
 app.use(express.json());

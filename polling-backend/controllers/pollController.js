@@ -1,5 +1,5 @@
-
-export let polls = []; // list of objects
+let polls = {};
+module.exports.polls = polls;
 // polls [Schema] :
 /*
   {
@@ -32,7 +32,7 @@ module.exports = {
       const { title } = req.body;
 
       if (!title) {
-        res.status(400).json({
+        return res.status(400).json({
           message: "Title is required!",
         });
       }
@@ -46,7 +46,7 @@ module.exports = {
         history: [],
       };
 
-      res.status(201).json({
+      return res.status(201).json({
         pollId,
       });
     } catch (err) {
@@ -59,44 +59,44 @@ module.exports = {
   // teacher can add a question
   addQuestion: (req, res) => {
     try {
-      const pollId = req.params;
+      const { pollId } = req.params;
       const { text, options, timeLimit = 60 } = req.body;
       if (!text || !options) {
-        res.status(400).json({
+        return res.status(400).json({
           message: "Title and options are required!",
         });
       }
 
       const poll = polls[pollId];
       if (!poll) {
-        res.status(400).json({
+        return res.status(400).json({
           message: "Poll didn't exist!",
         });
       }
 
       if (
-        !poll.questions.length ||
+        poll.questions.length > 0 &&
         !poll.questions[poll.questions.length - 1].completed
       ) {
-        res.status(400).json({
-          message: "Previous questions not finished",
-        });
-
-        const questionId = generateQuestionId(poll);
-        const question = {
-          id: questionId,
-          text,
-          options,
-          answers: {},
-          completed: false,
-          resultShown: false,
-        };
-
-        poll.questions.push(question);
-        res.json({
-          questionId,
-        });
+        return res
+          .status(400)
+          .json({ message: "Previous questions not finished" });
       }
+
+      const questionId = generateQuestionId(poll);
+      const question = {
+        id: questionId,
+        text,
+        options,
+        answers: {},
+        completed: false,
+        resultShown: false,
+      };
+
+      poll.questions.push(question);
+      return res.json({
+        questionId,
+      });
     } catch (err) {
       res.status(400).json({
         Error: err.message,
@@ -106,47 +106,48 @@ module.exports = {
 
   submitAnswers: (req, res) => {
     try {
-      // pollId and questionId
       const { pollId, questionId } = req.params;
       const { studentId, answer, name } = req.body;
+
       const poll = polls[pollId];
       if (!poll) {
-        res.status(400).json({
+        return res.status(400).json({
           message: "Poll didn't exist with this pollId!",
         });
       }
 
       const question = poll.questions.find((q) => q.id === questionId);
       if (!question) {
-        // ques didn't exist
-        res.json({
-          message: "Teacher haven't posted a question with this pollId!",
+        return res.status(400).json({
+          message: "Teacher hasn't posted a question with this pollId!",
         });
       }
 
       if (question.completed) {
-        res.status(400).json({
-          message: "Questions has ended! Cannot submit the response.",
+        return res.status(400).json({
+          message: "Question has ended! Cannot submit the response.",
         });
       }
 
       question.answers[studentId] = answer;
 
-      // add student ans to poll
-      poll.students[studentId] = { id: studentId,
-        name : name
-       };
-      res.status(400).json({
-        message: "Answer submitted!",
-      });
+      poll.students[studentId] = {
+        id: studentId,
+        name: name,
+      };
 
+      // Check if all students answered
       const totalStudents = Object.keys(poll.students).length;
       if (Object.keys(question.answers).length === totalStudents) {
         question.completed = true;
         poll.history.push(question);
       }
+
+      return res.status(200).json({
+        message: "Answer submitted!",
+      });
     } catch (err) {
-      res.status(400).json({
+      return res.status(400).json({
         Error: err.message,
       });
     }
@@ -157,7 +158,7 @@ module.exports = {
       const { pollId } = req.params;
       const poll = polls[pollId];
       if (!poll) {
-        res.status(400).json({
+        return res.status(400).json({
           message: "Poll didn't exist!",
         });
       }
@@ -170,7 +171,7 @@ module.exports = {
         results = lastQues.answers;
       }
 
-      res.json({
+      return res.json({
         results,
       });
     } catch (err) {
@@ -178,22 +179,27 @@ module.exports = {
     }
   },
 
-  getHistory : (req, res) => {
-    const { pollId } = req.params;
-    const currPoll = polls[pollId];
-    // push ques meta data to history
-    const history = currPoll.questions.map(q => ({
-      id: q.id,
-      text: q.text,
-      options: q.options,
-      answers: q.answers,
-      completed: q.completed,
-      resultShown : false,
-      timeLimit: q.timeLimit
-    }));
+  getHistory: (req, res) => {
+    try {
+      const { pollId } = req.params;
+      const currPoll = polls[pollId];
+      if (!currPoll) {
+        return res.status(400).json({ message: "Poll not found!" });
+      }
 
-    res.json ({
-      history
-    })
+      const history = currPoll.questions.map((q) => ({
+        id: q.id,
+        text: q.text,
+        options: q.options,
+        answers: q.answers,
+        completed: q.completed,
+        resultShown: false,
+        timeLimit: q.timeLimit,
+      }));
+
+      return res.json({ history });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
   },
 };

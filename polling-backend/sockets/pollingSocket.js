@@ -49,7 +49,7 @@ module.exports = function (io) {
           message: "PollId is not correct!",
         });
       }
-      store.active({ ...question, answers: {}, complete: false });
+      store.active = { ...question, answers: {}, complete: false };
       store.questions.push(store.active);
 
       // Broadcast the question to all the students
@@ -63,29 +63,40 @@ module.exports = function (io) {
         s.answered = false;
       });
 
+      if (store.timers[pollId]) {
+        clearTimeout(store.timers[pollId]);
+      }
       store.timers[pollId] = setTimeout(() => {
-        store.active.complete = true;
+        store.active.completed = true;
         io.to(pollId).emit("show-results", store.active.answers);
       }, (question.timeLimit || 60) * 1000);
     });
-  });
 
-  socket.on("teacher-get-history", ({ pollId }) => {
-    const store = pollStore[pollId];
-    if (!store) return;
-    io.to(socket.id).emit(
-      "poll-history",
-      store.questions.map((q) => ({
-        text: q.text,
-        options: q.options,
-        answers: q.answers,
-      }))
-    );
-  });
+    socket.on("teacher-get-history", ({ pollId }) => {
+      const store = pollStore[pollId];
+      if (!store) {
+        res.status(400).json({
+          message: "Pollid is not valid!",
+        });
+        return;
+      }
 
-  socket.on("disconnect", () => {
-    for (const pollId in pollStore) {
-      delete pollStore[pollId].students[socket.id];
-    }
+      io.to(socket.id).emit(
+        "poll-history",
+        store.questions.map((q) => ({
+          text: q.text,
+          options: q.options,
+          answers: q.answers,
+        }))
+      );
+    });
+
+    socket.on("disconnect", () => {
+      for (const pollId in pollStore) {
+        if (pollStore[pollId].students[socket.id]) {
+          delete pollStore[pollId].students[socket.id];
+        }
+      }
+    });
   });
 };
