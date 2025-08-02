@@ -1,6 +1,5 @@
-const { options } = require("../routes/pollingRoutes");
 
-let polls = []; // list of objects
+export let polls = []; // list of objects
 // polls [Schema] :
 /*
   {
@@ -13,7 +12,7 @@ let polls = []; // list of objects
   }
  */
 
-let pollIdCounter = 0;
+let pollingIdCounter = 0;
 
 function generatePollId() {
   const genPollId = pollingIdCounter++;
@@ -109,7 +108,7 @@ module.exports = {
     try {
       // pollId and questionId
       const { pollId, questionId } = req.params;
-      const { studentId, answer } = req.body;
+      const { studentId, answer, name } = req.body;
       const poll = polls[pollId];
       if (!poll) {
         res.status(400).json({
@@ -131,8 +130,12 @@ module.exports = {
         });
       }
 
+      question.answers[studentId] = answer;
+
       // add student ans to poll
-      poll.students[studentId] = { id: studentId };
+      poll.students[studentId] = { id: studentId,
+        name : name
+       };
       res.status(400).json({
         message: "Answer submitted!",
       });
